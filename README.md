@@ -1,7 +1,9 @@
-# Utility of Prehospital Electrocardiogram Interpretation in ST-segment Elevation Myocardial Infarction using the University of Glasgow Algorithm and Transmission for Interventional Cardiologist Consultation
-Amir Faour  
+# Utility of prehospital electrocardiogram interpretation in ST-segment elevation myocardial infarction utilizing computer interpretation and transmission for interventional cardiologist consultation
+## [DOI: 10.1002/ccd.30300](http://doi.org/10.1002/ccd.30300)
+
+Amir Faour, BSc, MBBS, FRACP, FCSANZ  
 University of New South Wales  
 a.faour@unsw.edu.au  
-2021-12-4  
+2022-06-29
 
-This repository contains the R source code for the study titled "Utility of Prehospital Electrocardiogram Interpretation in ST-segment Elevation Myocardial Infarction using the University of Glasgow Algorithm and Transmission for Interventional Cardiologist Consultation". The code is supplied to provide an overview of key steps in statistical analysis and will be uploaded to this repository once the manuscript is accepted for publication. The code has been edited for readability and re-ordered as per the manuscript and supplement. Where repeated analysis steps have taken place, only one example is shown for brevity. The data that support the findings of this study are available from Amir Faour (a.faour@unsw.edu.au) upon reasonable request.
+This repository contains the R source code for the article [Utility of prehospital electrocardiogram interpretation in ST-segment elevation myocardial infarction utilizing computer interpretation and transmission for interventional cardiologist consultation](http://doi.org/10.1002/ccd.30300). The code is supplied to provide an overview of the key steps used in statistical analysis, tables and figures. The code has been edited for readability and re-ordered as per the manuscript. Where repeated analysis steps have taken place, only one example is shown for brevity.

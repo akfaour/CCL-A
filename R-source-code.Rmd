@@ -1,0 +1,567 @@
+--- 
+title: 'R source code for the article Utility of prehospital electrocardiogram interpretation in ST-segment elevation myocardial infarction utilizing computer interpretation and transmission for interventional cardiologist consultation (http://doi.org/10.1002/ccd.30300)'
+author: 'Amir Faour, BSc MBBS FRACP FCSANZ'
+date: '2022-06-29'
+
+---
+```{r setup, include=FALSE}
+options(scipen = 999)
+
+# Packages
+library(tidyverse)
+library(gt)
+library(gtsummary)
+library(ggsignif)
+library(DiagrammeR)
+library(DiagrammeRsvg) 
+library(rsvg)
+library(png)
+library(grid)
+library(gridExtra)
+library(survival)
+library(rms)
+library(survminer)
+library(magrittr)
+library(lubridate)
+library(hms)
+library(gmodels)
+library(pspline)
+library(sandwich)
+library(cmprsk)
+library(timereg)
+library(ggplot2)
+library(ggpubr)
+library(ggsci)
+library(glue)
+library(svglite)
+library(tiff)
+library(fmsb)
+library(emojifont)
+library(RColorBrewer)
+library(ggalluvial)
+library(ggfittext)
+library(ggrepel)
+
+# Functions
+source("extras/functions.R")
+
+# Table Themes
+## gtsummary
+reset_gtsummary_theme()
+theme_gtsummary_journal(journal = "jama", set_theme = TRUE)
+theme_gtsummary_compact(set_theme = TRUE)
+
+## My gtsummary theme
+AF.GTsummary <-   
+  list(
+    "tbl_summary-str:categorical_stat" = "{n} ({p})",
+    "tbl_summary-str:continuous_stat" = "{median} ({p25}-{p75})",
+    "pkgwide-str:theme_name" = "AF's GTsummary theme"
+  )
+set_gtsummary_theme(AF.GTsummary)
+
+# Load CSV file
+setwd('~/Dropbox/R/projects/transmission1')
+AllTransmissions.DF <- read.csv("data/2021-12-02 Transmission v2 CSV.csv", header=TRUE,strip.white=TRUE, blank.lines.skip=TRUE)
+AllTransmissions.DF <- AllTransmissions.DF[1:1708, ]
+
+# Scrubbing and checking steps omitted
+
+# Create flow chart vector
+Flow.Chart.Vector <- c(AllTransmissions.Count, IncludedTransmissions.Count, Lab.Activated.Count, Lab.Not.Activated.Count, Lab.Activated.App.Count, Lab.Activated.Inapp.Count, Lab.Not.Activated.App.Count, Lab.Not.Activated.Inapp.Count, AA.No.MI.Count, TP.Count, ExcludedTransmissions.Count, MissingInfo.Count, Serial.Count, NoTnT.Count, Fibrinolysis.Count, IA.NSTEMI.Count, IA.No.MI.Count, ANA.STEMI.Count, ANA.NSTEMI.Count, ANA.No.MI.Count, IANA.STEMI.Count, IANA.No.MI.Count)
+
+```
+
+# Tables
+**Table 1. Definitions of the Study Endpoints**
+```{r table1}
+Study.Endpoints <- c("Appropriate CCL activation rate", "False-positive CCL activation rate", "Inappropriate CCL activation rate", "Inappropriate CCL nonactivation rate")
+Definitions <- c("The number of appropriate CCL activations divided by the total number of CCL activations. Appropriate CCL activation is defined as CCL activation in a patient with all of the following: (1) cardiac ischaemic symptoms (<12 h), (2) STEMI ECG criteria/equivalents, and (3) absence of contraindications to emergency coronary angiography.", "The number of appropriate CCL activations in patients without an adjudicated index diagnosis of STEMI divided by the total number of appropriate CCL activations.", "The number of inappropriate CCL activations divided by the total number of CCL activations. Inappropriate CCL activation is defined as CCL activation in a patient with any of the following: (1) absence of cardiac ischaemic symptoms, (2) absence of STEMI ECG criteria/equivalents, or (3) presence of contraindications to emergency coronary angiography.", "The number of inappropriate CCL nonactivations divided by the total number of CCL nonactivations. Inappropriate CCL nonactivation is defined as CCL nonactivation in a patient with all of the following: (1) cardiac ischaemic symptoms (<12 h), (2) STEMI ECG criteria/equivalents, and (3) absence of contraindications to emergency coronary angiography.")
+
+Table1.DF <- data.frame(Study.Endpoints, Definitions)
+
+# GT formatting
+Table1.TB <- Table1.DF %>%
+  gt() %>%
+  tab_options(data_row.padding = px(1)) %>%
+  tab_options(footnotes.padding = px(1)) %>%
+  tab_options(column_labels.padding = px(1)) %>%
+  tab_options(row_group.padding = px(1)) %>%
+  tab_options(table.border.top.style = "solid") %>%
+  tab_options(table.border.top.color = "#000000") %>%
+  tab_options(table.border.top.width = px(1)) %>%
+  tab_options(table.border.bottom.style = "solid") %>%
+  tab_options(table.border.bottom.color = "white") %>%
+  tab_options(table.border.bottom.width = px(0)) %>%
+  tab_options(column_labels.background.color = "#BEBEBE") %>%
+  tab_options(column_labels.border.top.style = "solid") %>%
+  tab_options(column_labels.border.top.width = px(1)) %>%
+  tab_options(column_labels.border.top.color = "#000000") %>%
+  tab_options(column_labels.border.bottom.style = "solid") %>%
+  tab_options(column_labels.border.bottom.width = px(1)) %>%
+  tab_options(column_labels.border.bottom.color = "#000000") %>%
+  tab_options(column_labels.border.lr.style = "solid") %>%
+  tab_options(column_labels.border.lr.width = px(1)) %>%
+  tab_options(column_labels.border.lr.color = "#000000") %>%
+  tab_options(column_labels.vlines.style = NULL) %>%
+  tab_options(column_labels.vlines.width = NULL) %>%
+  tab_options(column_labels.vlines.color = NULL) %>%
+  tab_options(table_body.vlines.style = NULL) %>%
+  tab_options(table_body.vlines.color = NULL) %>%
+  tab_options(table_body.vlines.width = NULL) %>%
+  tab_options(table_body.hlines.style = "solid") %>%
+  tab_options(table_body.hlines.color = "#000000") %>%
+  tab_options(table_body.hlines.width = px(1)) %>%
+  tab_options(table_body.border.top.style = "solid") %>%
+  tab_options(table_body.border.top.width = px(1)) %>%
+  tab_options(table_body.border.top.color = "#000000") %>%
+  tab_options(table_body.border.bottom.style = "solid") %>%
+  tab_options(table_body.border.bottom.width = px(1)) %>%
+  tab_options(table_body.border.bottom.color = "#000000") %>%
+  tab_options(footnotes.border.bottom.style = NULL) %>%
+  tab_options(footnotes.border.bottom.color = NULL) %>%
+  tab_options(footnotes.border.bottom.width = NULL) %>%
+  tab_options(footnotes.border.lr.style = NULL) %>%
+  tab_options(footnotes.border.lr.color = NULL) %>%
+  tab_options(footnotes.border.lr.width = NULL) %>%
+  tab_style(style = cell_borders(sides = "left", style = "solid", color = "#000000"), locations = cells_body(columns = Study.Endpoints, rows = everything())) %>%
+  tab_style(style = cell_borders(sides = "right", style = "solid", color = "#000000"), locations = cells_body(columns = Definitions, rows = everything())) %>%
+  tab_options(table.align = "left") %>%
+  tab_options(table.font.size = 12) %>%
+  tab_options(table.font.names = "arial") %>%
+  cols_align(align = "left", columns = 1:2) %>%
+  tab_row_group(label = md("Primary endpoint"), id = 1, rows = 1) %>%
+  tab_row_group(label = md("Secondary endpoints"), id = 2, rows = c(2:4)) %>%
+  row_group_order(groups = c("1", "2")) %>%
+  tab_style(style = list(cell_fill(color = "#D3D3D3"), cell_borders(sides = "all", color = "#000000", style = "solid", weight = px(1))), locations = cells_row_groups(groups = 1:2)) %>%
+  tab_style(style = cell_text(indent = px(4)),locations = cells_body(columns = Study.Endpoints, rows = 1:4)) %>%
+  cols_label(Study.Endpoints = md("**Endpoint**"), Definitions = md("**Definition**")) %>%
+  opt_footnote_marks(marks = c("", "*", "†", "‡", "§", "||", "#", "**")) %>%
+  tab_footnote(footnote = "STEMI ECG criteria were defined as ST-segment elevation of ≥ 1mm (except ≥2 mm in men > 40 years, ≥2.5 mm in men <40 years or ≥1.5 mm in women in leads V2-3) in ≥2 contiguous leads. STEMI equivalents were defined as: (1) left bundle branch block (new/presumed new or pre-existing with Sgarbossa concordance), (2) posterior myocardial ischaemia, (3) left main coronary artery ischaemia, and (4) return of spontaneous circulation following witnessed out of hospital cardiac arrest from a shockable rhythm.", locations = cells_body(columns = Definitions, rows = 1)) %>%
+  tab_footnote(footnote = "CCL indicates cardiac catheter laboratory; ECG, electrocardiogram; STEMI, ST-segment elevation myocardial infarction.", locations = cells_column_labels(columns = Study.Endpoints)) %>%
+  cols_width(Study.Endpoints ~ px(220)) %>%
+  cols_width(Definitions ~ px(500))
+
+Table1.TB %>%
+  gtsave("transmission1-table1.html", path = "tables")
+
+Table1.TB
+```
+
+\newpage
+
+**Table 2. Baseline Characteristics of the Study Population**
+```{r table2}
+# GTsummary
+reset_gtsummary_theme()
+theme_gtsummary_compact(set_theme = TRUE)
+set_gtsummary_theme(AF.GTsummary)
+
+# Table 1
+Table2.DF <- IncludedTransmissions.DF %>% dplyr::select(Age, FemaleGender, Any_DM, Hypertension, Dyslipidaemia, Previous_MI, Stroke, FHx, Current_Smoker,  STEMI_ECG_Criteria, Non_Specific_STE, LBBB, RBBB, LMOE, Pre_Cath_Arrest, TnT_URL, Cath_During_Admission, Culprit, Culprit_Artery_Name, PCI, CABG, FMC_to_ECG, FMC_to_Door, FMC_to_Device, Door_to_Device, MI, STEMI_Diagnosis, NSTEMI, Not_MI)
+
+Table2.TB <- Table2.DF %>%
+tbl_summary(sort = Culprit_Artery_Name ~ "frequency", type = list(c(Age, TnT_URL, FMC_to_ECG, FMC_to_Door, FMC_to_Device, Door_to_Device) ~ "continuous", c(FemaleGender, Any_DM, Hypertension, Dyslipidaemia, Stroke, Previous_MI, FHx, Current_Smoker,  STEMI_ECG_Criteria, Non_Specific_STE, LBBB, RBBB, LMOE, Pre_Cath_Arrest, Cath_During_Admission, Culprit, PCI, CABG, MI, STEMI_Diagnosis, NSTEMI, Not_MI) ~ "dichotomous"), 
+            value = list(Culprit ~ "1"), 
+            label = list(Age ~ "Age [IQR], years", TnT_URL ~ "Peak troponin T / upper reference limit [IQR]", Cath_During_Admission ~ "Invasive coronary angiography, n (%)", FemaleGender ~ "Female, n (%)", Any_DM ~ "Diabetes mellitus, n (%)", Hypertension ~ "Hypertension, n (%)", Dyslipidaemia ~ "Dyslipidaemia, n (%)", Previous_MI ~ "Previous myocardial infarction, n (%)", Stroke ~ "Previous stroke, n (%)", PCI ~ "PCI, n (%)", FHx ~ "Family history of coronary artery disease, n (%)", Current_Smoker ~ "Smoking history, n (%)", STEMI_ECG_Criteria ~ "STEMI criteria, n (%)", Non_Specific_STE ~ "Nondiagnostic ST-segment elevation, n (%)", LBBB ~ "Left bundle branch block, n (%)", RBBB ~ "Right bundle branch block, n (%)", LMOE ~ "Left main coronary ischaemia, n (%)", Pre_Cath_Arrest ~ "Cardiac arrest, n (%)", Culprit ~ "Infarct-related artery, n (%)", Culprit_Artery_Name ~ "Culprit coronary artery, n (%)", FMC_to_ECG ~ "FMC-to-ECG [IQR], min", FMC_to_Door ~ "FMC-to-door [IQR], min", FMC_to_Device ~ "FMC-to-device [IQR], min", Door_to_Device ~ "Door-to-device [IQR], min", MI ~ "Myocardial infarction, n (%)", STEMI_Diagnosis ~ "STEMI, n (%)", NSTEMI ~ "Non-STEMI, n (%)", Not_MI ~ "No myocardial infarction, n (%)"), 
+            missing = "no") %>%
+modify_header(update = list(label ~ "**Variable**", stat_0 ~ "**Study Population**<br>(n={N})")) %>%
+modify_footnote(list(starts_with("stat") ~ "Values are n (%) or median [IQR]. CABG indicates coronary artery by-pass graft surgery; IQR, interquartile range; PCI, percutaneous coronary intervention; STEMI, ST-segment elevation myocardial infarction."), abbreviation = FALSE) %>%
+remove_row_type("Culprit_Artery_Name", type = "header") %>%
+  as_gt()
+
+# GT formatting
+Table2.TB <- Table2.TB %>%
+  tab_options(data_row.padding = px(1)) %>%
+  tab_options(footnotes.padding = px(1)) %>%
+  tab_options(column_labels.padding = px(1)) %>%
+  tab_options(column_labels.padding = px(1)) %>%
+  tab_options(table.border.top.style = "solid") %>%
+  tab_options(table.border.top.color = "#000000") %>%
+  tab_options(table.border.top.width = px(1)) %>%
+  tab_options(table.border.bottom.style = "solid") %>%
+  tab_options(table.border.bottom.color = "white") %>%
+  tab_options(table.border.bottom.width = px(0)) %>%
+  tab_options(column_labels.background.color = "#BEBEBE") %>%
+  tab_options(column_labels.border.top.style = "solid") %>%
+  tab_options(column_labels.border.top.width = px(1)) %>%
+  tab_options(column_labels.border.top.color = "#000000") %>%
+  tab_options(column_labels.border.bottom.style = "solid") %>%
+  tab_options(column_labels.border.bottom.width = px(1)) %>%
+  tab_options(column_labels.border.bottom.color = "#000000") %>%
+  tab_options(column_labels.border.lr.style = "solid") %>%
+  tab_options(column_labels.border.lr.width = px(1)) %>%
+  tab_options(column_labels.border.lr.color = "#000000") %>%
+  tab_options(column_labels.vlines.style = NULL) %>%
+  tab_options(column_labels.vlines.width = NULL) %>%
+  tab_options(column_labels.vlines.color = NULL) %>%
+  tab_options(table_body.vlines.style = NULL) %>%
+  tab_options(table_body.vlines.color = NULL) %>%
+  tab_options(table_body.vlines.width = NULL) %>%
+  tab_options(table_body.hlines.style = "solid") %>%
+  tab_options(table_body.hlines.color = "#000000") %>%
+  tab_options(table_body.hlines.width = px(1)) %>%
+  tab_options(table_body.border.top.style = "solid") %>%
+  tab_options(table_body.border.top.width = px(1)) %>%
+  tab_options(table_body.border.top.color = "#000000") %>%
+  tab_options(table_body.border.bottom.style = "solid") %>%
+  tab_options(table_body.border.bottom.width = px(1)) %>%
+  tab_options(table_body.border.bottom.color = "#000000") %>%
+  tab_options(footnotes.border.bottom.style = NULL) %>%
+  tab_options(footnotes.border.bottom.color = NULL) %>%
+  tab_options(footnotes.border.bottom.width = NULL) %>%
+  tab_options(footnotes.border.lr.style = NULL) %>%
+  tab_options(footnotes.border.lr.color = NULL) %>%
+  tab_options(footnotes.border.lr.width = NULL) %>%
+  tab_style(style = cell_borders(sides = "left", style = "solid", color = "#000000"), locations = cells_body(columns = label, rows = everything())) %>%
+  tab_style(style = cell_borders(sides = "right", style = "solid", color = "#000000"), locations = cells_body(columns = stat_0, rows = everything())) %>%
+  tab_options(table.align = "left") %>%
+  tab_options(table.font.size = 12) %>%
+  tab_options(table.font.names = "arial") %>%
+  cols_align(align = "center", columns = 2:3) %>%
+  tab_row_group(
+    label = md("Baseline characteristics"),
+    id = 1,
+    rows = c(1:2)) %>%
+    tab_row_group(
+    label = md("Past medical history"),
+    id = 2,
+    rows = c(3:9)) %>%
+    tab_row_group(
+    label = md("Index electrocardiogram"),
+    id = 3,
+    rows = c(10:14)) %>%
+    tab_row_group(
+    label = md("Presentation characteristics"),
+    id = 4,
+    rows = c(15:25)) %>%
+    tab_row_group(
+    label = md("Treatment intervals"),
+    id = 5,
+    rows = c(26:29)) %>%
+    tab_row_group(
+    label = md("Diagnostic classification"),
+    id = 6,
+    rows = c(30:33)) %>%
+    row_group_order(
+    groups = c("1", "2", "3", "4", "5", "6")) %>%
+    tab_style(
+    style = list(cell_fill(color = "#D3D3D3"), cell_borders(sides = "all", color = "#000000", style = "solid", weight = px(1))),
+    locations = cells_row_groups(groups = 1:6)) %>%
+    tab_style(style = cell_text(indent = px(8)),locations = cells_body(columns = label, rows = 31:32)) %>%
+    opt_footnote_marks(marks = c("", "*", "†", "‡", "§", "||", "#", "**")) %>%
+    tab_footnote(footnote = gt::html("Troponin level divided by the upper reference limit to facilitate comparison between 4<sup>th</sup>-generation and high-sensitivity assays."), locations = cells_body(columns = label, rows = 16)) %>%
+   tab_footnote(footnote = gt::html("Adjudicated according to the 4<sup>th</sup> Universal Definition of MI."), locations = cells_row_groups(groups=6)) %>%
+   tab_footnote(footnote = "Nondiagnostic ST-segment elevation was defined as ≥0.5 mm and <1 mm in ≥1 lead.", locations = cells_body(columns = label, rows = 11)) %>%
+   tab_footnote(footnote = "Left main coronary ischaemia was defined as ST-segment elevation in lead aVR accompanied by ≥1 mm ST-segment depression in ≥6 leads.", locations = cells_body(columns = label, rows = 14)) %>%
+   tab_footnote(footnote = "Treatment intervals for patients undergoing primary PCI (n=501).", locations = cells_row_groups(groups=5)) %>%
+  tab_footnote(footnote = "Index ECG characteristics are not categories of a single variable and are not mutually exclusive (except for left and right bundle branch block), therefore they do not add up to 100%.", locations = cells_row_groups(groups=2)) %>%
+    cols_width(label ~ px(270)) %>%
+    cols_width(stat_0 ~ px(110))
+
+Table2.TB %>%
+  gtsave("transmission1-table2.html", path = "tables")
+
+Table2.TB
+```
+
+\newpage
+
+**Table 3. Discharge Diagnoses in Patients with False-Positive Cardiac Catheter Laboratory Activation.**
+```{r table3}
+# GTsummary
+reset_gtsummary_theme()
+theme_gtsummary_compact(set_theme = TRUE)
+set_gtsummary_theme(AF.GTsummary)
+
+Table3.DF <- FP.DF %>% dplyr::select(Discharge_Dx)
+Table3.TB <- Table3.DF %>%
+tbl_summary(sort = all_categorical() ~ "frequency") %>%
+  modify_header(update = list(label ~ "**Variable**", stat_0 ~ "**Frequency**<br>(n={N})")) %>%
+  modify_footnote(list(starts_with("stat") ~ "Values are n (%). False-positive cardiac catheter laboratory activations were defined as appropriate activations in patients without an adjudicated index diagnosis of ST-segment elevation myocardial infarction."), abbreviation = FALSE) %>%
+  remove_row_type("Discharge_Dx", type = "header") %>%
+  modify_table_body(
+    ~ .x %>% 
+  dplyr::mutate(label=ifelse(label=="Pericarditis","Pericarditis, n (%)", ifelse(label=="Takotsubo cardiomyopathy","Takotsubo cardiomyopathy, n (%)", ifelse(label=="Chest pain - unspecified","Chest pain - unspecified, n (%)", ifelse(label=="Syncope","Syncope, n (%)", ifelse(label=="Arrhythmia","Arrhythmia, n (%)", ifelse(label=="Pancreatitis","Pancreatitis, n (%)", ifelse(label=="Respiratory tract infection","Respiratory tract infection, n (%)", ifelse(label=="Vomiting - unspecified","Vomiting - unspecified, n (%)", label)))))))))) %>%
+  as_gt()
+
+# GT formatting
+Table3.TB <- Table3.TB %>%
+  tab_options(data_row.padding = px(1)) %>%
+  tab_options(footnotes.padding = px(1)) %>%
+  tab_options(column_labels.padding = px(1)) %>%
+  tab_options(table.border.top.style = "solid") %>%
+  tab_options(table.border.top.color = "#000000") %>%
+  tab_options(table.border.top.width = px(1)) %>%
+  tab_options(table.border.bottom.style = "solid") %>%
+  tab_options(table.border.bottom.color = "white") %>%
+  tab_options(table.border.bottom.width = px(0)) %>%
+  tab_options(column_labels.background.color = "#BEBEBE") %>%
+  tab_options(column_labels.border.top.style = "solid") %>%
+  tab_options(column_labels.border.top.width = px(1)) %>%
+  tab_options(column_labels.border.top.color = "#000000") %>%
+  tab_options(column_labels.border.bottom.style = "solid") %>%
+  tab_options(column_labels.border.bottom.width = px(1)) %>%
+  tab_options(column_labels.border.bottom.color = "#000000") %>%
+  tab_options(column_labels.border.lr.style = "solid") %>%
+  tab_options(column_labels.border.lr.width = px(1)) %>%
+  tab_options(column_labels.border.lr.color = "#000000") %>%
+  tab_options(column_labels.vlines.style = NULL) %>%
+  tab_options(column_labels.vlines.width = NULL) %>%
+  tab_options(column_labels.vlines.color = NULL) %>%
+  tab_options(table_body.vlines.style = NULL) %>%
+  tab_options(table_body.vlines.color = NULL) %>%
+  tab_options(table_body.vlines.width = NULL) %>%
+  tab_options(table_body.hlines.style = "solid") %>%
+  tab_options(table_body.hlines.color = "#000000") %>%
+  tab_options(table_body.hlines.width = px(1)) %>%
+  tab_options(table_body.border.top.style = "solid") %>%
+  tab_options(table_body.border.top.width = px(1)) %>%
+  tab_options(table_body.border.top.color = "#000000") %>%
+  tab_options(table_body.border.bottom.style = "solid") %>%
+  tab_options(table_body.border.bottom.width = px(1)) %>%
+  tab_options(table_body.border.bottom.color = "#000000") %>%
+  tab_options(footnotes.border.bottom.style = NULL) %>%
+  tab_options(footnotes.border.bottom.color = NULL) %>%
+  tab_options(footnotes.border.bottom.width = NULL) %>%
+  tab_options(footnotes.border.lr.style = NULL) %>%
+  tab_options(footnotes.border.lr.color = NULL) %>%
+  tab_options(footnotes.border.lr.width = NULL) %>%
+  tab_style(style = cell_borders(sides = "left", style = "solid", color = "#000000"), locations = cells_body(columns = label, rows = everything())) %>%
+  tab_style(style = cell_borders(sides = "right", style = "solid", color = "#000000"), locations = cells_body(columns = stat_0, rows = everything())) %>%
+  tab_options(table.align = "left") %>%
+  tab_options(table.font.size = 12) %>%
+  tab_options(table.font.names = "arial") %>%
+  cols_align(align = "center", columns = 1) %>%
+  tab_style(style = cell_text(indent = px(0)), locations = cells_body(columns = label, rows = everything())) %>%
+  opt_footnote_marks(marks = c("", "*", "†", "‡", "§", "||", "#", "**")) %>%
+  cols_width(label ~ px(200)) %>%
+  cols_width(stat_0 ~ px(70))
+
+gtsave(Table3.TB, "transmission1_table3.html", path = "tables")
+
+Table3.TB
+```
+
+\newpage
+
+**Table 4. Reasons for Inappropriate Cardiac Catheter Laboratory Activation.**
+```{r table4}
+# GTsummary
+reset_gtsummary_theme()
+theme_gtsummary_compact(set_theme = TRUE)
+set_gtsummary_theme(AF.GTsummary)
+
+Table4.DF <- Lab.Activated.Inapp.DF %>% dplyr::select(Reason_for_IA)
+Table4.TB <- Table4.DF %>%
+tbl_summary(sort = all_categorical() ~ "frequency") %>%
+  modify_header(update = list(label ~ "**Variable**", stat_0 ~ "**Frequency**<br>(n={N})")) %>%
+  modify_footnote(list(starts_with("stat") ~ "Values are n (%). Inappropriate cardiac catheter laboratory activations were defined as activations in patients with any of the following: (1) absence of cardiac ischaemic symptoms, (2) absence of STEMI ECG criteria/equivalents, or (3) presence of contraindications to emergency coronary angiography."), abbreviation = FALSE) %>%
+  remove_row_type("Reason_for_IA", type = "header") %>%
+  modify_table_body(
+    ~ .x %>% 
+  dplyr::mutate(label=ifelse(label=="Nondiagnostic ST-segment elevation","Nondiagnostic ST-segment elevation, n (%)", ifelse(label=="Left ventricular hypertrophy","Left ventricular hypertrophy, n (%)", ifelse(label=="Absence of cardiac ischaemic symptoms","Absence of cardiac ischaemic symptoms, n (%)", ifelse(label=="Early repolarisation pattern","Early repolarisation pattern, n (%)", ifelse(label=="Right bundle branch block","Right bundle branch block, n (%)", label))))))) %>%
+  as_gt()
+
+# GT formatting
+Table4.TB <- Table4.TB %>%
+  tab_options(data_row.padding = px(1)) %>%
+  tab_options(footnotes.padding = px(1)) %>%
+  tab_options(column_labels.padding = px(1)) %>%
+  tab_options(column_labels.padding = px(1)) %>%
+  tab_options(table.border.top.style = "solid") %>%
+  tab_options(table.border.top.color = "#000000") %>%
+  tab_options(table.border.top.width = px(1)) %>%
+  tab_options(table.border.bottom.style = "solid") %>%
+  tab_options(table.border.bottom.color = "white") %>%
+  tab_options(table.border.bottom.width = px(0)) %>%
+  tab_options(column_labels.background.color = "#BEBEBE") %>%
+  tab_options(column_labels.border.top.style = "solid") %>%
+  tab_options(column_labels.border.top.width = px(1)) %>%
+  tab_options(column_labels.border.top.color = "#000000") %>%
+  tab_options(column_labels.border.bottom.style = "solid") %>%
+  tab_options(column_labels.border.bottom.width = px(1)) %>%
+  tab_options(column_labels.border.bottom.color = "#000000") %>%
+  tab_options(column_labels.border.lr.style = "solid") %>%
+  tab_options(column_labels.border.lr.width = px(1)) %>%
+  tab_options(column_labels.border.lr.color = "#000000") %>%
+  tab_options(column_labels.vlines.style = NULL) %>%
+  tab_options(column_labels.vlines.width = NULL) %>%
+  tab_options(column_labels.vlines.color = NULL) %>%
+  tab_options(table_body.vlines.style = NULL) %>%
+  tab_options(table_body.vlines.color = NULL) %>%
+  tab_options(table_body.vlines.width = NULL) %>%
+  tab_options(table_body.hlines.style = "solid") %>%
+  tab_options(table_body.hlines.color = "#000000") %>%
+  tab_options(table_body.hlines.width = px(1)) %>%
+  tab_options(table_body.border.top.style = "solid") %>%
+  tab_options(table_body.border.top.width = px(1)) %>%
+  tab_options(table_body.border.top.color = "#000000") %>%
+  tab_options(table_body.border.bottom.style = "solid") %>%
+  tab_options(table_body.border.bottom.width = px(1)) %>%
+  tab_options(table_body.border.bottom.color = "#000000") %>%
+  tab_options(footnotes.border.bottom.style = NULL) %>%
+  tab_options(footnotes.border.bottom.color = NULL) %>%
+  tab_options(footnotes.border.bottom.width = NULL) %>%
+  tab_options(footnotes.border.lr.style = NULL) %>%
+  tab_options(footnotes.border.lr.color = NULL) %>%
+  tab_options(footnotes.border.lr.width = NULL) %>%
+  tab_style(style = cell_borders(sides = "left", style = "solid", color = "#000000"), locations = cells_body(columns = label, rows = everything())) %>%
+  tab_style(style = cell_borders(sides = "right", style = "solid", color = "#000000"), locations = cells_body(columns = stat_0, rows = everything())) %>%
+  tab_options(table.align = "left") %>%
+  tab_options(table.font.size = 12) %>%
+  tab_options(table.font.names = "arial") %>%
+  cols_align(align = "center", columns = 1) %>%
+  tab_style(style = cell_text(indent = px(0)), locations = cells_body(columns = label, rows = everything())) %>%
+  opt_footnote_marks(marks = c("", "*", "†", "‡", "§", "||", "#", "**"))  %>%
+  tab_footnote(footnote = "Nondiagnostic ST-segment elevation was defined as ≥0.5 mm and <1 mm in ≥1 lead.", locations = cells_body(columns = label, rows = 1)) %>%
+  cols_width(label ~ px(270)) %>%
+  cols_width(stat_0 ~ px(70))
+
+
+gtsave(Table4.TB, "transmission1-table4.html", path = "tables")
+
+#Table4.TB <- Table4.TB %>%
+  #as_latex()
+
+Table4.TB
+```
+
+# Figures
+
+```{r figure1, fig.width=10, fig.height=6, fig.cap='**Study flow diagram with identification of the study population by classification according to the appropriateness of cardiac catheter laboratory activation and the 4^th^ Universal Definition of Myocardial Infarction.** Three patients with CCL activation expired before emergency coronary angiography. CCL indicates cardiac catheter laboratory; ECG, electrocardiogram; ED, emergency department; STEMI, ST-segment elevation myocardial infarction.}
+
+Excluded.Paste <- paste0('Excluded (n=', Flow.Chart.Vector[11], ')')
+Serial.Paste <- paste0('- Serial/duplicate ECGs ', '(n=', Flow.Chart.Vector[13], ')')
+Missing.Paste <- paste0('- Missing data ', '(n=', Flow.Chart.Vector[12], ')')
+No.Troponin.Paste <- paste0('- Troponin not tested ', '(n=', Flow.Chart.Vector[14], ')')
+Fibrinolytics.Paste <- paste0('- Received fibrinolytic therapy ', '(n=', Flow.Chart.Vector[15], ')')
+
+STEMI1.Paste <- paste0('- STEMI ', '(n=', Flow.Chart.Vector[10], ')')
+NoMI1.Paste <- paste0('- No MI ', '(n=', Flow.Chart.Vector[9], ')')
+
+NSTEMI2.Paste <- paste0('- Non-STEMI ', '(n=', Flow.Chart.Vector[16], ')')
+NoMI2.Paste <- paste0('- No MI ', '(n=', Flow.Chart.Vector[17], ')')
+
+STEMI3.Paste <- paste0('- STEMI ', '(n=', Flow.Chart.Vector[18], ')')
+NSTEMI3.Paste <- paste0('- Non-STEMI ', '(n=', Flow.Chart.Vector[19], ')')
+NoMI3.Paste <- paste0('- No MI ', '(n=', Flow.Chart.Vector[20], ')')
+
+STEMI4.Paste <- paste0('- STEMI ', '(n=', Flow.Chart.Vector[21], ')')
+NoMI4.Paste <- paste0('- No MI ', '(n=', Flow.Chart.Vector[22], ')')
+
+Figure1.FG <- DiagrammeR::grViz("
+digraph Figure1 {
+
+graph [layout = dot, fontname = arial]
+node [shape = rectangle, style = filled, fillcolor = white, color = black]
+edge[color = black]
+
+a [label = '@@1']
+b [label = '@@2']
+c [label = '@@3']
+d [label = '@@4']
+e [label = '@@5']
+f [label = '@@6']
+g [label = '@@7']
+h [label = '@@8']
+i [label = '@@9']
+j [label = '@@10\\l@@11\\l']
+k [label = '@@13\\l@@12\\l']
+l [label = '@@16\\l@@15\\l@@14\\l']
+m [label = '@@17\\l@@18\\l']
+n [label = '@@19\\l@@20\\l@@21\\l@@22\\l@@23\\l']
+o [label ='@@24']
+
+a -> b
+b -> c
+c -> d
+c -> e
+
+d -> f
+d -> g
+
+e -> h
+e -> i
+
+f -> j
+g -> k
+
+h -> l
+i -> m
+
+{rank=same ; b -> n}
+{rank=same ; a -> o}
+}
+
+[1]: paste0('Prehospital computer-interpreted ECG reads STEMI followed by\\ntransmission to interventional cardiologist for consultation\\n', '(n=1585)')
+[2]: paste0('Successful ECG transmissions assessed for eligibility\\n', '(n=', Flow.Chart.Vector[1], ')')
+[3]: paste0('Study population\\n', '(n=', Flow.Chart.Vector[2], ')')
+[4]: paste0('CCL activation and emergency angiography\\n', '(n=', Flow.Chart.Vector[3], ')')
+[5]: paste0('CCL nonactivation and transfer to ED\\n', '(n=', Flow.Chart.Vector[4], ')')
+[6]: paste0('Appropriate Activation\\n', '(n=', Flow.Chart.Vector[5], ')')
+[7]: paste0('Inappropriate Activation\\n', '(n=', Flow.Chart.Vector[6], ')')
+[8]: paste0('Appropriate Nonactivation\\n', '(n=', Flow.Chart.Vector[7], ')')
+[9]: paste0('Inappropriate Nonactivation\\n', '(n=', Flow.Chart.Vector[8], ')')
+[10]: paste0(STEMI1.Paste)
+[11]: paste0(NoMI1.Paste)
+[12]: paste0(NSTEMI2.Paste)
+[13]: paste0(NoMI2.Paste)
+[14]: paste0(STEMI3.Paste)
+[15]: paste0(NSTEMI3.Paste)
+[16]: paste0(NoMI3.Paste)
+[17]: paste0(STEMI4.Paste)
+[18]: paste0(NoMI4.Paste)
+[19]: paste0(Excluded.Paste)
+[20]: paste0(Serial.Paste)
+[21]: paste0(Missing.Paste)
+[22]: paste0(No.Troponin.Paste)
+[23]: paste0(Fibrinolytics.Paste)
+[24]: paste0('Failed ECG transmissions\\n', '(n=2)')
+")
+
+# Save tiff and png then print
+Diag_DPI = 600
+Diag_width = 10
+Diag_height = 6
+
+Figure1.FG %>%
+    export_svg() %>%
+    charToRaw %>%
+    rsvg(width = Diag_width*(Diag_DPI/2.54), height = Diag_height*(Diag_DPI/2.54)) %>%
+    tiff::writeTIFF("Figures/Transmission1_Figure1.tiff", bits.per.sample = 8L)
+
+Figure1.FG
+```
+
+```{r figure2, fig.width=10, fig.height=6, fig.cap='**Reasons for appropriate cardiac catheter laboratory non-activation.** Others included old MI (n=6) and patient refusal (n=1). CCL indicates cardiac catheter laboratory; LBBB, left bundle branch block; RBBB, right bundle branch block; STEMI, ST-segment elevation myocardial infarction.'}
+# Reorder Indication by frequency
+Lab.Not.Activated.App.DF$Reason_for_Non_Activation3 <- sortLvlsByN.fnc(Lab.Not.Activated.App.DF$Reason_for_Non_Activation3)
+
+# Combine reasons and create data frame for plotting
+Reasons.For.ANA.DF <- Lab.Not.Activated.App.DF %>%
+  select(Reason_for_Non_Activation3) %>%
+  group_by(Reason_for_Non_Activation3) %>%
+  summarise(Freq=n()) %>%
+  mutate(Percent=round(Freq/sum(Freq)*100, 1))
+
+Figure2.FG <-
+  ggplot(Reasons.For.ANA.DF, aes(x=Reason_for_Non_Activation3, y=Freq, fill=Reason_for_Non_Activation3)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(label=with(Reasons.For.ANA.DF, sprintf("%d (%.0f%%)",Freq, 100*Freq/sum(Freq))), hjust=-0.05) +
+  coord_flip() +
+  ylim(0, 180) +
+  labs(y = "Frequency - n (%)", x = "Reason for Appropriate CCL Nonactivation") +
+  theme_pubr()
+
+Figure2.FG <- Figure2.FG + theme(legend.title = element_blank(), legend.text = element_text(size = 10, color = "black", face = "bold"), plot.title = element_text(hjust = 0.5, size = 10, color = "black", face = "bold"), plot.tag = element_text(size=10, face = "bold", color = "black"), axis.text.x = element_text(margin = margin(t = 5, r = 0, b = 0, l = 5), size=12, face = "bold", colour = "black"), axis.text.y = element_text(margin = margin(t = 0, r = 0, b = 0, l = 5), size = 12, face = "bold", colour = "black"), axis.title.x = element_text(size = 12, face = "bold"), axis.title.y = element_text(size = 12, face = "bold"), plot.margin=unit(c(0.5,0.5,0.5,0.5),"cm"))
+
+# Save TIFF
+tiff("figures/transmission1-fig2.tiff", units="in", width=10, height=6, res=300)
+Figure2.FG
+dev.off()
+
+# Print
+Figure2.FG
+
+```
